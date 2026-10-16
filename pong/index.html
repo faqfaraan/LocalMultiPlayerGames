@@ -12,7 +12,9 @@ box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:en
 html{scroll-padding-top:env(safe-area-inset-top,0px)}
 body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
 h1{margin:0;font-size:1.3rem}
-canvas{width:100%;max-width:800px;aspect-ratio:2/1;background:var(--court);border:2px solid var(--line);border-radius:8px}
+canvas{width:100%;max-width:800px;aspect-ratio:2/1;background:var(--court);border:2px solid var(--line);border-radius:8px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.btn{font:inherit;padding:8px 18px;border-radius:8px;border:1px solid var(--line);background:var(--court);color:var(--fg);cursor:pointer;touch-action:manipulation}
+.btn:active{opacity:.7}
 .keys{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;color:var(--muted);font-size:.95rem}
 .keys b{color:var(--fg)}
 .p1{color:var(--p1)}.p2{color:var(--p2)}
@@ -26,6 +28,13 @@ canvas{width:100%;max-width:800px;aspect-ratio:2/1;background:var(--court);borde
   <span><b class="p2">Player 2:</b> ↑ / ↓</span>
   <span><b>Space</b> start / pause</span>
   <span><b>R</b> reset</span>
+</div>
+<div class="keys">
+  <span><b>Touch:</b> drag a finger on your half of the screen (left = Player 1, right = Player 2)</span>
+</div>
+<div class="keys">
+  <button class="btn" id="pauseBtn" type="button">Pause</button>
+  <button class="btn" id="resetBtn" type="button">Reset</button>
 </div>
 <script>
 const cv=document.getElementById('c'),ctx=cv.getContext('2d');
@@ -56,6 +65,43 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyR')resetAll();
 });
 addEventListener('keyup',e=>{keys[e.code]=false});
+
+// Touch / pointer controls: each finger controls the paddle on the half where it first touched
+const fingers={};
+function canvasPos(e){
+  const r=cv.getBoundingClientRect();
+  return {x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};
+}
+function movePaddle(player,y){
+  const p=player===1?p1:p2;
+  p.y=Math.max(0,Math.min(H-PH,y-PH/2));
+}
+cv.addEventListener('pointerdown',e=>{
+  e.preventDefault();
+  try{cv.setPointerCapture(e.pointerId)}catch(_){}
+  const {x,y}=canvasPos(e);
+  const player=x<W/2?1:2;
+  fingers[e.pointerId]=player;
+  if(state==='ready'||state==='paused')state='playing';
+  else if(state==='over'){resetAll();return}
+  movePaddle(player,y);
+});
+cv.addEventListener('pointermove',e=>{
+  const player=fingers[e.pointerId];
+  if(!player)return;
+  e.preventDefault();
+  movePaddle(player,canvasPos(e).y);
+});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,e=>{delete fingers[e.pointerId]}));
+// Stop iPad Safari from scrolling or zooming while playing
+document.addEventListener('touchmove',e=>{if(e.target===cv)e.preventDefault()},{passive:false});
+
+const pauseBtn=document.getElementById('pauseBtn');
+pauseBtn.addEventListener('click',()=>{
+  if(state==='playing')state='paused';
+  else if(state==='paused'||state==='ready')state='playing';
+});
+document.getElementById('resetBtn').addEventListener('click',resetAll);
 addEventListener('blur',()=>{for(const k in keys)keys[k]=false;if(state==='playing')state='paused'});
 
 function update(dt){
@@ -94,16 +140,17 @@ function draw(){
   ctx.fillStyle=css('--p2');ctx.fillRect(W-24-PW,p2.y,PW,PH);
   ctx.fillStyle=css('--fg');ctx.fillRect(ball.x,ball.y,BS,BS);
   const fg=css('--fg'),mu=css('--muted');
-  if(state==='ready'){text('Press Space to serve',W/2,H-40,22,fg)}
-  if(state==='paused'){text('Paused — Space to resume',W/2,H/2+90,22,fg)}
+  if(state==='ready'){text('Tap or press Space to serve',W/2,H-40,22,fg)}
+  if(state==='paused'){text('Paused — tap or press Space to resume',W/2,H/2+90,22,fg)}
   if(state==='over'){
     text(`Player ${winner} wins!`,W/2,H/2-6,44,css(winner===1?'--p1':'--p2'));
-    text('Space to play again',W/2,H/2+36,20,mu);
+    text('Tap or press Space to play again',W/2,H/2+36,20,mu);
   }
 }
 function loop(now){
   const dt=Math.min((now-last)/1000,.05);last=now;
   if(state==='playing')update(dt);
+  pauseBtn.textContent=state==='playing'?'Pause':'Start';
   draw();requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
