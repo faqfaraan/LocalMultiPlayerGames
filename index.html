@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Couch Games</title>
+<style>
+:root{--bg:#f4f4f1;--fg:#1c1c1a;--muted:#6b6b66;--card:#ffffff;--line:#dcdcd6;--accent:#d9480f;--thumb:#0e0e0d;
+color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#f1f1ee;--muted:#9a9a94;--card:#202020;--line:#383835;--accent:#ff8a5c;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5}
+header{text-align:center;padding:56px 20px 32px}
+h1{margin:0 0 8px;font-size:clamp(2rem,6vw,3rem)}
+header p{margin:0 auto;max-width:520px;color:var(--muted);font-size:1.1rem}
+main{max-width:960px;margin:0 auto;padding:0 20px 56px}
+h2{font-size:1.1rem;margin:24px 0 16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:20px}
+.card{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+a.card:hover,a.card:focus-visible{transform:translateY(-4px);border-color:var(--accent);outline:none}
+.thumb{aspect-ratio:2/1;background:var(--thumb);display:flex;align-items:center;justify-content:center}
+.thumb svg{width:100%;height:100%;display:block}
+.info{padding:14px 16px 16px}
+.info h3{margin:0 0 4px;font-size:1.1rem}
+.info p{margin:0;color:var(--muted);font-size:.92rem}
+.tag{display:inline-block;margin-top:10px;font-size:.78rem;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted)}
+.soon{opacity:.6}
+.soon .thumb{background:repeating-linear-gradient(45deg,var(--line),var(--line) 10px,transparent 10px,transparent 20px);color:var(--muted);font-size:1.4rem}
+footer{text-align:center;color:var(--muted);font-size:.9rem;padding:0 20px 40px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🎮 Couch Games</h1>
+  <p>Welcome! Grab a friend, share one screen, and play. No downloads, no accounts, just games for two or more people on one device.</p>
+</header>
+
+<main>
+  <h2>Pick a game</h2>
+  <div class="grid">
+
+    <!-- PONG -->
+    <a class="card" href="pong/">
+      <div class="thumb">
+        <svg viewBox="0 0 200 100" aria-hidden="true">
+          <line x1="100" y1="0" x2="100" y2="100" stroke="#555" stroke-width="2" stroke-dasharray="5 6"/>
+          <rect x="12" y="28" width="6" height="30" fill="#ff8a5c"/>
+          <rect x="182" y="46" width="6" height="30" fill="#5aa9ff"/>
+          <rect x="120" y="40" width="6" height="6" fill="#fff"/>
+          <text x="80" y="24" fill="#ff8a5c" font-size="18" font-family="sans-serif" text-anchor="middle">3</text>
+          <text x="120" y="24" fill="#5aa9ff" font-size="18" font-family="sans-serif" text-anchor="middle">2</text>
+        </svg>
+      </div>
+      <div class="info">
+        <h3>Pong</h3>
+        <p>The classic paddle duel. First to 5 wins.</p>
+        <span class="tag">2 players · Keyboard</span>
+      </div>
+    </a>
+
+    <!-- COPY THIS BLOCK FOR EACH NEW GAME -->
+    <div class="card soon">
+      <div class="thumb">?</div>
+      <div class="info">
+        <h3>More coming soon</h3>
+        <p>New games are on the way.</p>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>Made with ❤️ for playing together.</footer>
+</body>
+</html>

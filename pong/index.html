@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Local Pong</title>
+<style>
+:root{--bg:#f4f4f1;--fg:#1c1c1a;--muted:#6b6b66;--p1:#d9480f;--p2:#1971c2;--court:#ffffff;--line:#d0d0ca;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;--fg:#f1f1ee;--muted:#9a9a94;--p1:#ff8a5c;--p2:#5aa9ff;--court:#0e0e0d;--line:#3a3a37;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#161615;--fg:#f1f1ee;--muted:#9a9a94;--p1:#ff8a5c;--p2:#5aa9ff;--court:#0e0e0d;--line:#3a3a37;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column;align-items:center;gap:12px;padding:16px}
+h1{margin:0;font-size:1.3rem}
+canvas{width:100%;max-width:800px;aspect-ratio:2/1;background:var(--court);border:2px solid var(--line);border-radius:8px}
+.keys{display:flex;gap:24px;flex-wrap:wrap;justify-content:center;color:var(--muted);font-size:.95rem}
+.keys b{color:var(--fg)}
+.p1{color:var(--p1)}.p2{color:var(--p2)}
+</style>
+</head>
+<body>
+<h1>Local Pong</h1>
+<canvas id="c" width="800" height="400"></canvas>
+<div class="keys">
+  <span><b class="p1">Player 1:</b> W / S</span>
+  <span><b class="p2">Player 2:</b> ↑ / ↓</span>
+  <span><b>Space</b> start / pause</span>
+  <span><b>R</b> reset</span>
+</div>
+<script>
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+const W=cv.width,H=cv.height,PW=12,PH=80,BS=10,WIN=5,PSPEED=360;
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const keys={};
+let state='ready',winner=null,last=performance.now();
+let p1,p2,ball,s1=0,s2=0;
+
+function resetBall(dir){
+  const a=(Math.random()-.5)*0.8;
+  ball={x:W/2,y:H/2,vx:dir*320*Math.cos(a),vy:320*Math.sin(a)};
+}
+function resetAll(){
+  p1={y:H/2-PH/2};p2={y:H/2-PH/2};s1=0;s2=0;winner=null;
+  resetBall(Math.random()<.5?-1:1);state='ready';
+}
+resetAll();
+
+addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown','Space'].includes(e.code))e.preventDefault();
+  keys[e.code]=true;
+  if(e.code==='Space'){
+    if(state==='ready'||state==='paused')state='playing';
+    else if(state==='playing')state='paused';
+    else if(state==='over')resetAll();
+  }
+  if(e.code==='KeyR')resetAll();
+});
+addEventListener('keyup',e=>{keys[e.code]=false});
+addEventListener('blur',()=>{for(const k in keys)keys[k]=false;if(state==='playing')state='paused'});
+
+function update(dt){
+  const m=(k1,k2)=>((keys[k2]?1:0)-(keys[k1]?1:0))*PSPEED*dt;
+  p1.y=Math.max(0,Math.min(H-PH,p1.y+m('KeyW','KeyS')));
+  p2.y=Math.max(0,Math.min(H-PH,p2.y+m('ArrowUp','ArrowDown')));
+  ball.x+=ball.vx*dt;ball.y+=ball.vy*dt;
+  if(ball.y<0){ball.y=0;ball.vy*=-1}
+  if(ball.y>H-BS){ball.y=H-BS;ball.vy*=-1}
+  const hit=(px,py,dir)=>{
+    if(ball.y+BS>py&&ball.y<py+PH){
+      const off=(ball.y+BS/2-(py+PH/2))/(PH/2);
+      const sp=Math.min(Math.hypot(ball.vx,ball.vy)*1.05,750);
+      const ang=off*Math.PI/4;
+      ball.vx=dir*sp*Math.cos(ang);ball.vy=sp*Math.sin(ang);return true;
+    }return false;
+  };
+  if(ball.vx<0&&ball.x<=24+PW&&ball.x>10){if(hit(24,p1.y,1))ball.x=24+PW+1}
+  if(ball.vx>0&&ball.x+BS>=W-24-PW&&ball.x+BS<W-10){if(hit(W-24-PW,p2.y,-1))ball.x=W-24-PW-BS-1}
+  if(ball.x<-BS){s2++;score(1)}
+  else if(ball.x>W){s1++;score(-1)}
+}
+function score(dir){
+  if(s1>=WIN||s2>=WIN){winner=s1>s2?1:2;state='over'}
+  else{resetBall(dir);state='ready'}
+}
+function text(t,x,y,size,color,align='center'){
+  ctx.fillStyle=color;ctx.font=`${size}px system-ui,sans-serif`;ctx.textAlign=align;ctx.fillText(t,x,y);
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle=css('--line');ctx.setLineDash([10,12]);ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();ctx.setLineDash([]);
+  text(s1,W/2-60,60,48,css('--p1'));text(s2,W/2+60,60,48,css('--p2'));
+  ctx.fillStyle=css('--p1');ctx.fillRect(24,p1.y,PW,PH);
+  ctx.fillStyle=css('--p2');ctx.fillRect(W-24-PW,p2.y,PW,PH);
+  ctx.fillStyle=css('--fg');ctx.fillRect(ball.x,ball.y,BS,BS);
+  const fg=css('--fg'),mu=css('--muted');
+  if(state==='ready'){text('Press Space to serve',W/2,H-40,22,fg)}
+  if(state==='paused'){text('Paused — Space to resume',W/2,H/2+90,22,fg)}
+  if(state==='over'){
+    text(`Player ${winner} wins!`,W/2,H/2-6,44,css(winner===1?'--p1':'--p2'));
+    text('Space to play again',W/2,H/2+36,20,mu);
+  }
+}
+function loop(now){
+  const dt=Math.min((now-last)/1000,.05);last=now;
+  if(state==='playing')update(dt);
+  draw();requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
