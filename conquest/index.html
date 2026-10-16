@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Conquest</title>
+<style>
+:root{--bg:#f4f4f1;--fg:#1c1c1a;--muted:#6b6b66;--court:#ffffff;--line:#c9c9c2;--accent:#d9480f;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#161615;--fg:#f1f1ee;--muted:#9a9a94;--court:#0e0e0d;--line:#3a3a37;--accent:#ff8a5c;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-user-select:none;user-select:none}
+#app{max-width:880px;margin:0 auto;padding:12px}
+.cover{min-height:92vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:20px}
+.cover h1{margin:0;font-size:clamp(1.8rem,6vw,2.8rem)}
+.muted{color:var(--muted);max-width:480px;margin:0}
+.dot{width:64px;height:64px;border-radius:50%}
+.row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;align-items:center}
+.btn{font:inherit;padding:10px 16px;border-radius:8px;border:1px solid var(--line);background:var(--court);color:var(--fg);cursor:pointer;touch-action:manipulation}
+.btn.on,.btn.go{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.big{font-size:1.1rem;padding:14px 24px}
+.btn[disabled]{opacity:.4;cursor:not-allowed}
+.inp{font:inherit;padding:10px;border-radius:8px;border:3px solid;background:var(--court);color:var(--fg);width:240px;text-align:center;-webkit-user-select:text;user-select:text}
+.log{background:var(--court);border:1px solid var(--line);border-radius:8px;padding:10px 14px;text-align:left;font-size:.92rem;max-width:480px;width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.chip{border:2px solid;border-radius:99px;padding:2px 10px;font-size:.85rem;background:var(--court)}
+svg{width:100%;background:var(--court);border:1px solid var(--line);border-radius:10px;display:block}
+svg line{stroke:var(--line);stroke-width:3}
+svg .n{font:700 20px system-ui,sans-serif;text-anchor:middle;fill:#fff;paint-order:stroke;stroke:#0009;stroke-width:3px;pointer-events:none}
+svg .l{font:12px system-ui,sans-serif;text-anchor:middle;fill:var(--fg);pointer-events:none}
+.nd{cursor:pointer}
+.panel{margin-top:8px;padding:10px;background:var(--court);border:1px solid var(--line);border-radius:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel span{flex:1 1 220px}
+.msg{min-height:1.4em;margin:8px 2px;font-size:.95rem}
+.legend{font-size:.8rem;color:var(--muted);margin-top:6px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const T=[["Frostpeak",90,70,0],["Ironhold",230,60,0],["Snowmere",110,170,0],["Pinewatch",250,160,0],
+["Sunport",470,60,1],["Redmesa",620,80,1],["Dunes",500,170,1],["Oasis",690,170,1],
+["Mistvale",90,300,2],["Fenwood",230,290,2],["Reedbank",130,400,2],["Lowmarsh",270,390,2],
+["Stonegate",470,290,3],["Highcliff",630,300,3],["Bayside",520,400,3],["Cape End",700,400,3]];
+const E=[[0,1],[0,2],[1,3],[2,3],[4,5],[4,6],[5,7],[6,7],[8,9],[8,10],[9,11],[10,11],[12,13],[12,14],[13,15],[14,15],[1,4],[3,6],[2,8],[3,9],[6,12],[7,13],[11,14],[9,12]];
+const CN=["Northlands","Eastmarch","Southreach","Westfold"],CB=[3,4,3,4],CC=['#4dabf7','#fcc419','#69db7e','#da77f2'];
+const COL=['#e03131','#1c7ed6','#2f9e44','#f08c00'],CARD=['🛡️ Infantry','🐴 Cavalry','💣 Artillery'];
+const A=T.map(()=>[]);E.forEach(([a,b])=>{A[a].push(b);A[b].push(a)});
+const $=s=>document.querySelector(s);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let setupN=2,setupNames=['Player 1','Player 2','Player 3','Player 4'],G=null;
+const nm=p=>`<span style="color:${COL[p]};font-weight:600">${esc(G.names[p])}</span>`;
+const terr=p=>T.map((_,i)=>i).filter(i=>G.own[i]==p);
+const bonus=n=>n<5?4+2*n:15+5*(n-5);
+
+function render(){
+  const a=$('#app');
+  if(!G)a.innerHTML=setupHTML();
+  else if(G.winner!=null)a.innerHTML=`<div class="cover"><h1 style="color:${COL[G.winner]}">${esc(G.names[G.winner])} conquers the map! 🏆</h1><button class="btn big" onclick="G=null;render()">New game</button></div>`;
+  else if(G.covered)a.innerHTML=coverHTML();
+  else a.innerHTML=playHTML();
+}
+function setupHTML(){
+  let h=`<div class="cover"><h1>⚔️ Conquest</h1><p class="muted">Pass-and-play world domination for 2–4 players on one device. The screen is hidden between turns so your cards stay secret.</p><div class="row">`;
+  for(let n=2;n<=4;n++)h+=`<button class="btn ${n==setupN?'on':''}" onclick="setupN=${n};render()">${n} players</button>`;
+  h+='</div>';
+  for(let i=0;i<setupN;i++)h+=`<input class="inp" style="border-color:${COL[i]}" value="${esc(setupNames[i])}" oninput="setupNames[${i}]=this.value" maxlength="14">`;
+  return h+`<button class="btn big" onclick="start()">Start game</button><p class="muted">Each turn: place reinforcements, attack neighbours, then fortify. Capture a territory to earn a card. Eliminate everyone else to win.</p></div>`;
+}
+function start(){
+  const n=setupN,names=setupNames.slice(0,n).map((s,i)=>s.trim()||'Player '+(i+1));
+  const ids=[...T.keys()].sort(()=>Math.random()-.5),own=[],arm=T.map(()=>1);
+  ids.forEach((t,i)=>own[t]=i%n);
+  for(let p=0;p<n;p++){const m=own.map((o,i)=>o==p?i:-1).filter(i=>i>=0);for(let k=0;k<12;k++)arm[m[Math.random()*m.length|0]]++}
+  G={n,names,own,arm,cur:0,cards:names.map(()=>[]),alive:names.map(()=>true),tradeN:0,log:[],winner:null};
+  beginTurn();
+}
+function beginTurn(){
+  const p=G.cur;let r=Math.max(3,terr(p).length/3|0);
+  CB.forEach((b,c)=>{if(T.every((t,i)=>t[3]!=c||G.own[i]==p))r+=b});
+  Object.assign(G,{phase:'reinforce',reinf:r,conq:false,sel:null,tgt:null,fort:null,msg:'',covered:true,showCards:true});
+  render();
+}
+function coverHTML(){
+  const p=G.cur;
+  return `<div class="cover"><div class="dot" style="background:${COL[p]}"></div><h1>Pass the device to<br>${esc(G.names[p])}</h1>
+  ${G.log.length?`<div class="log"><b>Last turn:</b>${G.log.map(l=>`<div>${l}</div>`).join('')}</div>`:''}
+  <p class="muted">Make sure only ${esc(G.names[p])} is looking, then tap below.</p>
+  <button class="btn big" onclick="G.covered=false;G.log=[];render()">I'm ${esc(G.names[p])} — start my turn</button></div>`;
+}
+function setOf(p){const c=[0,0,0];G.cards[p].forEach(k=>c[k]++);const k=c.findIndex(x=>x>=3);return k>=0?[k,k,k]:c.every(x=>x>0)?[0,1,2]:null}
+function playHTML(){
+  const p=G.cur,{sel,tgt,phase}=G;
+  const hl=new Set(sel==null?[]:A[sel].filter(i=>phase=='attack'?G.own[i]!=p:phase=='fortify'?G.own[i]==p:false));
+  let svg='<svg viewBox="0 0 800 470">'+E.map(([a,b])=>`<line x1="${T[a][1]}" y1="${T[a][2]}" x2="${T[b][1]}" y2="${T[b][2]}"/>`).join('');
+  T.forEach((t,i)=>{const [nme,x,y,c]=t,s=i==sel||i==tgt;
+    svg+=`<g class="nd" onclick="clk(${i})"><circle cx="${x}" cy="${y}" r="35" fill="none" stroke="${CC[c]}" stroke-width="3" stroke-dasharray="4 5" opacity=".8"/><circle cx="${x}" cy="${y}" r="26" fill="${COL[G.own[i]]}" stroke="${s?'#fff':'var(--court)'}" stroke-width="${s?5:2}"/>${hl.has(i)?`<circle cx="${x}" cy="${y}" r="31" fill="none" stroke="var(--fg)" stroke-width="2" stroke-dasharray="3 3"/>`:''}<text class="n" x="${x}" y="${y+7}">${G.arm[i]}</text><text class="l" x="${x}" y="${y+50}">${nme}</text></g>`});
+  svg+='</svg>';
+  const chips=G.names.map((n,i)=>G.alive[i]?`<span class="chip" style="border-color:${COL[i]}">${i==p?'▶ ':''}${esc(n)} · ${terr(i).length} terr · ${terr(i).reduce((s,t)=>s+G.arm[t],0)} armies · ${G.cards[i].length} cards</span>`:'').join('');
+  let ctl;
+  if(phase=='reinforce'){const must=G.cards[p].length>=5;
+    ctl=`<span><b>Reinforce:</b> ${G.reinf} armies left. Click your territories to place them.${must?' You hold 5+ cards, so you must trade.':''}</span>`+(setOf(p)?`<button class="btn" onclick="trade()">Trade cards (+${bonus(G.tradeN)})</button>`:'')+`<button class="btn go" ${G.reinf>0||must?'disabled':''} onclick="next()">Done → Attack</button>`}
+  else if(phase=='attack')
+    ctl=`<span><b>Attack:</b> ${sel==null?'pick your territory (2+ armies), then an adjacent enemy.':tgt==null?'now pick an adjacent enemy.':T[sel][0]+' → '+T[tgt][0]}</span>`+(tgt!=null?`<button class="btn" onclick="roll(0)">🎲 Roll</button><button class="btn" onclick="roll(1)">Blitz</button>`:'')+`<button class="btn go" onclick="next()">End attack → Fortify</button>`;
+  else ctl=`<span><b>Fortify (optional):</b> pick a territory, then an adjacent one of yours, to move armies (one route per turn).</span><button class="btn go" onclick="next()">End turn</button>`;
+  const cards=`<div class="panel"><span><b>Your cards:</b> ${G.showCards?(G.cards[p].length?G.cards[p].map(k=>CARD[k]).join(' · '):'none yet'):'hidden'}</span><button class="btn" onclick="G.showCards=!G.showCards;render()">${G.showCards?'Hide':'Show'} cards</button></div>`;
+  const leg=CN.map((n,i)=>`<span style="color:${CC[i]}">●</span> ${n} +${CB[i]}`).join(' &nbsp; ');
+  return `<div class="chips">${chips}</div>${svg}<div class="legend">Dashed rings = continents (own all 4 for the bonus): ${leg}</div><div class="msg">${G.msg}</div><div class="panel" style="border-color:${COL[p]}">${ctl}</div>${cards}`;
+}
+function clk(i){
+  const p=G.cur;G.msg='';
+  if(G.phase=='reinforce'){if(G.own[i]==p&&G.reinf>0){G.arm[i]++;G.reinf--}}
+  else if(G.phase=='attack'){
+    if(G.own[i]==p){G.sel=G.arm[i]>1?i:null;G.tgt=null;if(G.sel==null)G.msg='That territory needs 2+ armies to attack.'}
+    else if(G.sel!=null&&A[G.sel].includes(i))G.tgt=i;
+  }else if(G.own[i]==p){
+    const s=G.sel;
+    if(s==null||s==i||!A[s].includes(i))G.sel=G.arm[i]>1?i:null;
+    else if(G.arm[s]>1){
+      if(G.fort&&(G.fort[0]!=s||G.fort[1]!=i))G.msg='Only one fortify route per turn.';
+      else{G.fort=[s,i];G.arm[s]--;G.arm[i]++}
+    }
+  }
+  render();
+}
+function roll(blitz){
+  const s=G.sel,t=G.tgt,r=()=>1+Math.random()*6|0;
+  do{
+    const ad=Math.min(3,G.arm[s]-1),dd=Math.min(2,G.arm[t]);
+    const a=Array.from({length:ad},r).sort((x,y)=>y-x),d=Array.from({length:dd},r).sort((x,y)=>y-x);
+    let al=0,dl=0;for(let k=0;k<Math.min(ad,dd);k++)a[k]>d[k]?dl++:al++;
+    G.arm[s]-=al;G.arm[t]-=dl;
+    G.msg=`Attacker [${a}] vs defender [${d}]: attacker loses ${al}, defender loses ${dl}.`;
+    if(G.arm[t]<=0){conquer(s,t,ad);break}
+  }while(blitz&&G.arm[s]>1);
+  if(G.arm[s]<2)G.sel=G.tgt=null;
+  render();
+}
+function conquer(s,t,m){
+  const old=G.own[t],me=G.cur;
+  G.arm[s]-=m;G.arm[t]=m;G.own[t]=me;G.conq=true;G.sel=G.tgt=null;
+  G.msg+=` Captured ${T[t][0]}!`;
+  G.log.push(`${nm(me)} captured ${T[t][0]} from ${nm(old)}.`);
+  if(!terr(old).length){
+    G.alive[old]=false;G.cards[me].push(...G.cards[old]);G.cards[old]=[];
+    G.log.push(`${nm(old)} was eliminated!`);
+    if(G.alive.filter(x=>x).length==1)G.winner=me;
+  }
+}
+function trade(){
+  const s=setOf(G.cur);if(!s)return;
+  s.forEach(k=>G.cards[G.cur].splice(G.cards[G.cur].indexOf(k),1));
+  const b=bonus(G.tradeN++);G.reinf+=b;G.msg=`Traded cards for ${b} extra armies.`;render();
+}
+function next(){
+  G.msg='';
+  if(G.phase=='reinforce')G.phase='attack';
+  else if(G.phase=='attack'){G.phase='fortify';G.sel=G.tgt=null}
+  else{
+    if(G.conq)G.cards[G.cur].push(Math.random()*3|0);
+    do{G.cur=(G.cur+1)%G.n}while(!G.alive[G.cur]);
+    return beginTurn();
+  }
+  render();
+}
+render();
+</script>
+</body>
+</html>
